@@ -38,14 +38,22 @@ public class ProductionRegistryManager : MonoBehaviour
 
     public void UpdateTotalOfResourceWithID(int resourceID)
     {
-        GameObject resourceEntry = entryList[resourceID];
+        GameObject resourceEntry;
+        if (resourceID != 12)
+            resourceEntry = entryList[resourceID];
+        else
+            return;
         GameObject totalObj = resourceEntry.transform.Find("TotalCount/Text").gameObject;
         TextMeshProUGUI totalText = totalObj.GetComponent<TextMeshProUGUI>();
         totalText.text = resourceManager.resourceTotals[resourceID].ToString();
     }
     public void UpdateConsumptionRateOfResourceWithID(int resourceID)
     {
-        GameObject resourceEntry = entryList[resourceID];
+        GameObject resourceEntry;
+        if (resourceID != 12)
+            resourceEntry = entryList[resourceID];
+        else
+            return;
         GameObject consumptionObj = resourceEntry.transform.Find("ConsumptionCount/Text").gameObject;
         TextMeshProUGUI consumptionText = consumptionObj.GetComponent<TextMeshProUGUI>();
 
@@ -64,8 +72,12 @@ public class ProductionRegistryManager : MonoBehaviour
     }
     public void UpdateProductionRateOfResourceWithID(int resourceID)
     {
-        GameObject resourceEntry = entryList[resourceID];
-        GameObject productionObj = resourceEntry.transform.Find("ProductionCount/Text").gameObject;
+        GameObject resourceEntry;
+        if (resourceID != 12)
+            resourceEntry = entryList[resourceID];
+        else
+            return;
+            GameObject productionObj = resourceEntry.transform.Find("ProductionCount/Text").gameObject;
         TextMeshProUGUI productionText = productionObj.GetComponent<TextMeshProUGUI>();
 
         float epsilon = 0.0001f;
@@ -84,7 +96,11 @@ public class ProductionRegistryManager : MonoBehaviour
     }
     private void UpdateSurplusOfResourceWithID(int resourceID)
     {
-        GameObject resourceEntry = entryList[resourceID];
+        GameObject resourceEntry;
+        if (resourceID != 12)
+            resourceEntry = entryList[resourceID];
+        else
+            return;
         GameObject surplusObj = resourceEntry.transform.Find("SurplusCount/Text").gameObject;
         TextMeshProUGUI surplusText = surplusObj.GetComponent<TextMeshProUGUI>();
         float surplus = resourceManager.resourceProductionTotals[resourceID] - resourceManager.resourceConsumptionTotals[resourceID];

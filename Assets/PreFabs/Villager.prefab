@@ -93,6 +93,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: -2253911629886400664, guid: ed98217895c830746899753ed0961838, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4677612536803801547}
+    - targetCorrespondingSourceObject: {fileID: -2253911629886400664, guid: ed98217895c830746899753ed0961838, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2540675887504364656}
+    - targetCorrespondingSourceObject: {fileID: -2253911629886400664, guid: ed98217895c830746899753ed0961838, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9039697326056104558}
   m_SourcePrefab: {fileID: -8435245712485981826, guid: ed98217895c830746899753ed0961838, type: 3}
 --- !u!1 &1218136177231138932 stripped
 GameObject:
@@ -125,6 +131,7 @@ MonoBehaviour:
   currentState: 0
   spriteRenderer: {fileID: 4758802911975626744}
   idleBehavior: {fileID: 0}
+  workBehavior: {fileID: 0}
   happiness: 0
   level: 1
   upgradePoints: 0
@@ -169,7 +176,6 @@ MonoBehaviour:
     walkAnimationName: Walk
     enableSpriteFlipping: 1
     isLeftFacingDefault: 1
-    repositionCheckInterval: 1
     pathfindingSettings:
       maxPathfindingAttempts: 10
       allowWalkingOnRoads: 1
@@ -221,6 +227,67 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 0.1, y: 0.1}
   m_EdgeRadius: 0
+--- !u!114 &2540675887504364656
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1218136177231138932}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52bdfc92cdedab24c82d220463d53104, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  settings:
+    validationCheckInterval: 1
+    enableAutoRepositioning: 1
+    maxRepositionDistance: 5
+    enableDebugLogs: 1
+    pathfindingSettings:
+      maxPathfindingAttempts: 10
+      allowWalkingOnRoads: 1
+      enablePathfindingDebug: 0
+      movementLookaheadCells: 3
+      maxRepositionSearchRadius: 10
+--- !u!114 &9039697326056104558
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1218136177231138932}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c3de6c1a353a554cb12ade5e1c52c63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  settings:
+    movementSpeed: 1
+    workInterval: 10
+    workDuration: 10
+    bathingAnimationName: Swim
+    walkAnimationName: Walk
+    boxWalkAnimationName: Box
+    waterAnimationName: Water
+    axeAnimationName: Axe
+    axeWalkAnimationName: Axe Walk
+    attackAnimationName: Attack
+    workAnimationName: Work
+    mineAnimationName: Mine
+    marketPositionOne: {x: -2.73, y: 29, z: 0}
+    marketPositionTwo: {x: -1.355, y: 29, z: 0}
+    marketPositionThree: {x: 4.2, y: 29, z: 0}
+    marketPositionFour: {x: 5.65, y: 29, z: 0}
+    enableSpriteFlipping: 1
+    isLeftFacingDefault: 1
+    repositionCheckInterval: 1
+    pathfindingSettings:
+      maxPathfindingAttempts: 10
+      allowWalkingOnRoads: 1
+      enablePathfindingDebug: 0
+      movementLookaheadCells: 3
+      maxRepositionSearchRadius: 10
 --- !u!212 &4758802911975626744 stripped
 SpriteRenderer:
   m_CorrespondingSourceObject: {fileID: 3626916397498700004, guid: ed98217895c830746899753ed0961838, type: 3}

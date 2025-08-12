@@ -7,7 +7,7 @@ public class LumberMill : ProductionBuilding
     {
         base.Awake();
 
-        workPositions = new List<Vector3>() { new Vector3(0.66f, 0.78f, 0f) };
+        workPositions = new List<Vector3>() { new Vector3(2.265f, 0.78f, 0f)};
 
         inputMethodBase = new int[] { 0, 0 };
         inputMethodOne = new int[] { 1, 1 };
@@ -34,7 +34,7 @@ public class LumberMill : ProductionBuilding
         if (Level == 2)
         {
             BuildingName = "Lumber Mill LVL2";
-            workPositions.Add(new Vector3(2.265f, 0.78f, 0f));
+            workPositions.Add(new Vector3(0.66f, 0.78f, 0f));
         }
         else if (Level == 3)
         {

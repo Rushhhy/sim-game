@@ -8,18 +8,24 @@ public class PathfindingSettings
     public int maxPathfindingAttempts = 10;
     public bool allowWalkingOnRoads = true;
     [Tooltip("Enable detailed pathfinding logs for debugging")]
-    public bool enablePathfindingDebug = false;
-    [Tooltip("Number of grid cells to validate ahead during movement")]
-    public int movementLookaheadCells = 3;
+    public bool enablePathfindingDebug = true;
     [Tooltip("Maximum radius to search for alternative walkable positions")]
     public int maxRepositionSearchRadius = 10;
+
+    [Header("Obstacle Avoidance")]
+    [Tooltip("How far ahead to check for obstacles (in Unity units)")]
+    public float obstacleDetectionDistance = 1.5f;
+    [Tooltip("How sharply to steer around obstacles (0-1)")]
+    public float steeringForce = 0.7f;
+    [Tooltip("Maximum attempts to find alternative direction")]
+    public int maxAvoidanceAttempts = 6;
 }
 
 public class GridPathfinder
 {
     private GridData gridData;
     private PathfindingSettings settings;
-    private string debugName; // For debug logging
+    private string debugName;
 
     public GridPathfinder(GridData gridData, PathfindingSettings settings, string debugName = "GridPathfinder")
     {
@@ -39,99 +45,139 @@ public class GridPathfinder
     }
 
     /// <summary>
-    /// Finds a random walkable position within the specified radius from the center point
+    /// Gets the next movement direction with obstacle avoidance
+    /// Returns the direction to move in, or Vector3.zero if no valid direction found
     /// </summary>
-    public Vector3? FindRandomWalkablePosition(Vector3 centerWorldPos, float radius)
+    public Vector3 GetAvoidanceDirection(Vector3 currentPos, Vector3 targetPos)
     {
-        Vector3Int centerGridPos = WorldToGridPosition(centerWorldPos);
+        Vector3 desiredDirection = (targetPos - currentPos).normalized;
 
-        for (int attempt = 0; attempt < settings.maxPathfindingAttempts; attempt++)
+        if (settings.enablePathfindingDebug)
+            Debug.Log($"{debugName}: Checking direction from {currentPos} to {targetPos}");
+
+        // Check if direct path is clear
+        if (IsDirectionClear(currentPos, desiredDirection))
         {
-            // Choose random point within radius
-            Vector2 randomDirection = Random.insideUnitCircle * radius;
-            Vector3 potentialTarget = centerWorldPos + new Vector3(randomDirection.x, randomDirection.y, 0);
-            Vector3Int targetGridPos = WorldToGridPosition(potentialTarget);
+            if (settings.enablePathfindingDebug)
+                Debug.Log($"{debugName}: Direct path clear, using desired direction");
+            return desiredDirection;
+        }
 
-            // Check if target position is walkable
-            if (IsPositionWalkable(targetGridPos))
+        if (settings.enablePathfindingDebug)
+            Debug.Log($"{debugName}: Direct path blocked, searching for alternative");
+
+        // Try to find alternative direction
+        Vector3 avoidanceDirection = FindAvoidanceDirection(currentPos, desiredDirection);
+
+        if (avoidanceDirection != Vector3.zero)
+        {
+            if (settings.enablePathfindingDebug)
+                Debug.Log($"{debugName}: Found alternative direction: {avoidanceDirection}");
+            return avoidanceDirection;
+        }
+
+        if (settings.enablePathfindingDebug)
+            Debug.Log($"{debugName}: No valid direction found - all paths blocked");
+        return Vector3.zero;
+    }
+
+    /// <summary>
+    /// Checks if movement in a direction is clear of obstacles
+    /// </summary>
+    private bool IsDirectionClear(Vector3 position, Vector3 direction)
+    {
+        Vector3 checkPosition = position + direction * settings.obstacleDetectionDistance;
+        bool isWalkable = IsPositionWalkable(checkPosition);
+
+        if (settings.enablePathfindingDebug && !isWalkable)
+        {
+            Debug.Log($"{debugName}: Direction blocked at {checkPosition}");
+        }
+
+        return isWalkable;
+    }
+
+    /// <summary>
+    /// Finds an alternative direction to avoid obstacles
+    /// </summary>
+    private Vector3 FindAvoidanceDirection(Vector3 currentPos, Vector3 desiredDirection)
+    {
+        // Try different angles around the desired direction
+        float[] angleOffsets = { 45f, -45f, 90f, -90f, 135f, -135f };
+
+        for (int i = 0; i < angleOffsets.Length && i < settings.maxAvoidanceAttempts; i++)
+        {
+            Vector3 testDirection = RotateVector(desiredDirection, angleOffsets[i]);
+
+            if (settings.enablePathfindingDebug)
+                Debug.Log($"{debugName}: Testing {angleOffsets[i]}° angle: {testDirection}");
+
+            if (IsDirectionClear(currentPos, testDirection))
             {
-                // Check if there's a clear path to get there
-                if (HasClearPath(centerGridPos, targetGridPos))
+                if (settings.enablePathfindingDebug)
+                    Debug.Log($"{debugName}: Found clear path at {angleOffsets[i]}°");
+
+                // Blend with desired direction for smoother movement
+                Vector3 blendedDirection = Vector3.Lerp(desiredDirection, testDirection, settings.steeringForce).normalized;
+
+                // Check if blended direction is also clear
+                if (IsDirectionClear(currentPos, blendedDirection))
                 {
                     if (settings.enablePathfindingDebug)
-                        Debug.Log($"{debugName}: Found valid random position at {targetGridPos}");
-                    return potentialTarget;
+                        Debug.Log($"{debugName}: Using blended direction: {blendedDirection}");
+                    return blendedDirection;
+                }
+                else
+                {
+                    if (settings.enablePathfindingDebug)
+                        Debug.Log($"{debugName}: Blended blocked, using pure avoidance: {testDirection}");
+                    return testDirection;
                 }
             }
         }
 
         if (settings.enablePathfindingDebug)
-            Debug.Log($"{debugName}: No valid random position found within radius {radius}");
-        return null;
+            Debug.Log($"{debugName}: All tested angles are blocked");
+        return Vector3.zero;
     }
 
     /// <summary>
-    /// Checks if there's a clear path between two world positions
+    /// Rotates a 2D vector by the specified angle in degrees
     /// </summary>
-    public bool HasClearPath(Vector3 startWorldPos, Vector3 endWorldPos)
+    private Vector3 RotateVector(Vector3 vector, float angleDegrees)
     {
-        Vector3Int start = WorldToGridPosition(startWorldPos);
-        Vector3Int end = WorldToGridPosition(endWorldPos);
-        return HasClearPath(start, end);
+        float angleRad = angleDegrees * Mathf.Deg2Rad;
+        float cos = Mathf.Cos(angleRad);
+        float sin = Mathf.Sin(angleRad);
+
+        return new Vector3(
+            vector.x * cos - vector.y * sin,
+            vector.x * sin + vector.y * cos,
+            vector.z
+        );
     }
 
     /// <summary>
-    /// Checks if there's a clear path between two grid positions
+    /// Finds a random walkable position within the specified radius from the center point
     /// </summary>
-    public bool HasClearPath(Vector3Int start, Vector3Int end)
+    public Vector3? FindRandomWalkablePosition(Vector3 centerWorldPos, float radius)
     {
-        // Get all positions that need to be checked along the path
-        HashSet<Vector3Int> pathCells = GetAllPathCells(start, end);
-
-        // Check every cell along the path
-        foreach (Vector3Int cell in pathCells)
+        for (int attempt = 0; attempt < settings.maxPathfindingAttempts; attempt++)
         {
-            if (!IsPositionWalkable(cell))
+            Vector2 randomDirection = Random.insideUnitCircle * radius;
+            Vector3 potentialTarget = centerWorldPos + new Vector3(randomDirection.x, randomDirection.y, 0);
+
+            if (IsPositionWalkable(potentialTarget))
             {
                 if (settings.enablePathfindingDebug)
-                    Debug.Log($"{debugName}: Path blocked at {cell}");
-                return false;
+                    Debug.Log($"{debugName}: Found random walkable position at {potentialTarget}");
+                return potentialTarget;
             }
         }
 
-        return true;
-    }
-
-    /// <summary>
-    /// Validates if a position will remain walkable during movement with lookahead
-    /// </summary>
-    public bool ValidateMovementPath(Vector3 startPos, Vector3 targetPos, float progress)
-    {
-        // Calculate current intended position
-        Vector3 currentIntendedPos = Vector3.Lerp(startPos, targetPos, progress);
-        Vector3Int currentGridPos = WorldToGridPosition(currentIntendedPos);
-
-        // Validate current position
-        if (!IsPositionWalkable(currentGridPos))
-        {
-            if (settings.enablePathfindingDebug)
-                Debug.Log($"{debugName}: Movement blocked at {currentGridPos}");
-            return false;
-        }
-
-        // Additional validation: check positions ahead in the path
-        float lookaheadProgress = Mathf.Min(1f, progress + (settings.movementLookaheadCells * 0.1f));
-        Vector3 lookaheadPos = Vector3.Lerp(startPos, targetPos, lookaheadProgress);
-        Vector3Int lookaheadGridPos = WorldToGridPosition(lookaheadPos);
-
-        if (!IsPositionWalkable(lookaheadGridPos))
-        {
-            if (settings.enablePathfindingDebug)
-                Debug.Log($"{debugName}: Lookahead detected obstacle at {lookaheadGridPos}");
-            return false;
-        }
-
-        return true;
+        if (settings.enablePathfindingDebug)
+            Debug.Log($"{debugName}: No random walkable position found within radius {radius}");
+        return null;
     }
 
     /// <summary>
@@ -140,7 +186,7 @@ public class GridPathfinder
     public Vector3? FindNearestWalkablePosition(Vector3 blockedWorldPos)
     {
         Vector3Int blockedGridPos = WorldToGridPosition(blockedWorldPos);
-        Vector3Int? walkableGridPos = FindNearestWalkablePosition(blockedGridPos);
+        Vector3Int? walkableGridPos = FindNearestWalkableGridPosition(blockedGridPos);
 
         if (walkableGridPos.HasValue)
         {
@@ -153,7 +199,7 @@ public class GridPathfinder
     /// <summary>
     /// Finds the nearest walkable grid position to a blocked grid position
     /// </summary>
-    public Vector3Int? FindNearestWalkablePosition(Vector3Int blockedPosition)
+    private Vector3Int? FindNearestWalkableGridPosition(Vector3Int blockedPosition)
     {
         // Spiral search outward from the blocked position
         for (int radius = 1; radius <= settings.maxRepositionSearchRadius; radius++)
@@ -175,7 +221,7 @@ public class GridPathfinder
         }
 
         if (settings.enablePathfindingDebug)
-            Debug.Log($"{debugName}: No walkable position found within {settings.maxRepositionSearchRadius} cells of {blockedPosition}");
+            Debug.Log($"{debugName}: No walkable position found within {settings.maxRepositionSearchRadius} cells");
         return null;
     }
 
@@ -194,7 +240,8 @@ public class GridPathfinder
     {
         if (gridData == null)
         {
-            Debug.LogWarning($"{debugName}: GridData is null, assuming position is walkable");
+            if (settings.enablePathfindingDebug)
+                Debug.LogWarning($"{debugName}: GridData is null, assuming position is walkable");
             return true;
         }
 
@@ -202,7 +249,7 @@ public class GridPathfinder
         if (!gridData.mapBoundaries.Contains(gridPosition))
         {
             if (settings.enablePathfindingDebug)
-                Debug.Log($"{debugName}: Position {gridPosition} is outside map boundaries");
+                Debug.Log($"{debugName}: Position {gridPosition} outside map boundaries");
             return false;
         }
 
@@ -231,30 +278,8 @@ public class GridPathfinder
 
         // Otherwise, position is blocked
         if (settings.enablePathfindingDebug)
-            Debug.Log($"{debugName}: Position {gridPosition} is blocked by object with ID {id}");
+            Debug.Log($"{debugName}: Position {gridPosition} blocked by object ID {id}");
         return false;
-    }
-
-    /// <summary>
-    /// Pre-validates an entire path before starting movement
-    /// </summary>
-    public bool PreValidatePath(Vector3 startPos, Vector3 targetPos)
-    {
-        Vector3Int startGridPos = WorldToGridPosition(startPos);
-        Vector3Int targetGridPos = WorldToGridPosition(targetPos);
-
-        HashSet<Vector3Int> pathCells = GetAllPathCells(startGridPos, targetGridPos);
-        foreach (Vector3Int cell in pathCells)
-        {
-            if (!IsPositionWalkable(cell))
-            {
-                if (settings.enablePathfindingDebug)
-                    Debug.Log($"{debugName}: Pre-validation failed - path blocked at {cell}");
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /// <summary>
@@ -275,103 +300,15 @@ public class GridPathfinder
     public Vector3 GridToWorldPosition(Vector3Int gridPosition)
     {
         return new Vector3(
-            gridPosition.x + 0.5f, // Center of grid cell
+            gridPosition.x + 0.5f,
             gridPosition.y + 0.5f,
             0
         );
     }
 
-    // Get all grid cells that could potentially be intersected by the movement path
-    private HashSet<Vector3Int> GetAllPathCells(Vector3Int start, Vector3Int end)
-    {
-        HashSet<Vector3Int> cells = new HashSet<Vector3Int>();
-
-        // Add start and end positions
-        cells.Add(start);
-        cells.Add(end);
-
-        // Calculate the bounding box of the path
-        int minX = Mathf.Min(start.x, end.x);
-        int maxX = Mathf.Max(start.x, end.x);
-        int minY = Mathf.Min(start.y, end.y);
-        int maxY = Mathf.Max(start.y, end.y);
-
-        // Check all cells in the bounding rectangle
-        for (int x = minX; x <= maxX; x++)
-        {
-            for (int y = minY; y <= maxY; y++)
-            {
-                Vector3Int cell = new Vector3Int(x, y, 0);
-
-                // Check if this cell intersects with the movement line
-                if (DoesCellIntersectPath(cell, start, end))
-                {
-                    cells.Add(cell);
-                }
-            }
-        }
-
-        return cells;
-    }
-
-    // Check if a grid cell intersects with the movement path
-    private bool DoesCellIntersectPath(Vector3Int cell, Vector3Int start, Vector3Int end)
-    {
-        // Convert grid positions to world positions (cell centers)
-        Vector2 startWorld = new Vector2(start.x + 0.5f, start.y + 0.5f);
-        Vector2 endWorld = new Vector2(end.x + 0.5f, end.y + 0.5f);
-
-        // Cell bounds
-        Vector2 cellMin = new Vector2(cell.x, cell.y);
-        Vector2 cellMax = new Vector2(cell.x + 1f, cell.y + 1f);
-
-        // Use line-rectangle intersection test
-        return LineIntersectsRect(startWorld, endWorld, cellMin, cellMax);
-    }
-
-    // Line-rectangle intersection test
-    private bool LineIntersectsRect(Vector2 lineStart, Vector2 lineEnd, Vector2 rectMin, Vector2 rectMax)
-    {
-        // If either endpoint is inside the rectangle, intersection exists
-        if (IsPointInRect(lineStart, rectMin, rectMax) || IsPointInRect(lineEnd, rectMin, rectMax))
-            return true;
-
-        // Check if line intersects any of the four rectangle edges
-        Vector2 topLeft = new Vector2(rectMin.x, rectMax.y);
-        Vector2 topRight = rectMax;
-        Vector2 bottomLeft = rectMin;
-        Vector2 bottomRight = new Vector2(rectMax.x, rectMin.y);
-
-        return LineIntersectsLine(lineStart, lineEnd, topLeft, topRight) ||
-               LineIntersectsLine(lineStart, lineEnd, topRight, bottomRight) ||
-               LineIntersectsLine(lineStart, lineEnd, bottomRight, bottomLeft) ||
-               LineIntersectsLine(lineStart, lineEnd, bottomLeft, topLeft);
-    }
-
-    private bool IsPointInRect(Vector2 point, Vector2 rectMin, Vector2 rectMax)
-    {
-        return point.x >= rectMin.x && point.x <= rectMax.x &&
-               point.y >= rectMin.y && point.y <= rectMax.y;
-    }
-
-    private bool LineIntersectsLine(Vector2 line1Start, Vector2 line1End, Vector2 line2Start, Vector2 line2End)
-    {
-        float denominator = (line1Start.x - line1End.x) * (line2Start.y - line2End.y) -
-                           (line1Start.y - line1End.y) * (line2Start.x - line2End.x);
-
-        if (Mathf.Abs(denominator) < 0.0001f) return false; // Lines are parallel
-
-        float t = ((line1Start.x - line2Start.x) * (line2Start.y - line2End.y) -
-                  (line1Start.y - line2Start.y) * (line2Start.x - line2End.x)) / denominator;
-        float u = -((line1Start.x - line1End.x) * (line1Start.y - line2Start.y) -
-                   (line1Start.y - line1End.y) * (line1Start.x - line2Start.x)) / denominator;
-
-        return t >= 0 && t <= 1 && u >= 0 && u <= 1;
-    }
-
     private bool IsRoadID(int id)
     {
-        // Road ID range from your GridData class
+        // Road ID range - adjust this based on your GridData class
         return id >= 0 && id <= 15;
     }
 }
