@@ -19,7 +19,8 @@ public class GridData
         new Vector3Int(10, 56, 0), new Vector3Int(11, 56, 0), new Vector3Int(12, 56, 0), new Vector3Int(1, 56, 0), new Vector3Int(2, 56, 0), new Vector3Int(3, 56, 0), new Vector3Int(-11, 56, 0), new Vector3Int(-10, 56, 0), new Vector3Int(-9, 56, 0), new Vector3Int(-20, 56, 0),
         new Vector3Int(-19, 56, 0), new Vector3Int(-18, 56, 0), new Vector3Int(-17, 56, 0), new Vector3Int(-16, 56, 0), new Vector3Int(-23, 54, 0), new Vector3Int(-27, 53, 0), new Vector3Int(-26, 53, 0), new Vector3Int(-29, 53, 0), new Vector3Int(-29, 52, 0), new Vector3Int(-31, 30, 0),
         new Vector3Int(-31, 29, 0), new Vector3Int(-31, 28, 0), new Vector3Int(-31, 27, 0), new Vector3Int(-31, 26, 0), new Vector3Int(-32, 28, 0), new Vector3Int(-32, 29, 0), new Vector3Int(-24, 24, 0), new Vector3Int(-23, 24, 0), new Vector3Int(-22, 24, 0), new Vector3Int(-21, 24, 0),
-        new Vector3Int(-20, 24, 0), new Vector3Int(-19, 24, 0), new Vector3Int(-18, 24, 0), new Vector3Int(-28, 36, 0), new Vector3Int(-23, 53, 0), new Vector3Int(13, 33, 0), new Vector3Int(8, 28, 0), new Vector3Int(9, 28, 0),  new Vector3Int(10, 28, 0), new Vector3Int(11, 28, 0)
+        new Vector3Int(-20, 24, 0), new Vector3Int(-19, 24, 0), new Vector3Int(-18, 24, 0), new Vector3Int(-28, 36, 0), new Vector3Int(-23, 53, 0), new Vector3Int(13, 33, 0), new Vector3Int(8, 28, 0), new Vector3Int(9, 28, 0),  new Vector3Int(10, 28, 0), new Vector3Int(11, 28, 0), 
+        new Vector3Int(9, 31, 0), new Vector3Int(0, 30, 0), new Vector3Int(2, 30, 0), new Vector3Int(7, 30, 0), new Vector3Int(9, 30, 0)
     };
     // Cannot place - obstacles that area filled
     public HashSet<Vector3Int> positionsToRemove = new HashSet<Vector3Int>()
@@ -32,7 +33,7 @@ public class GridData
         new Vector3Int(11, 55, 0), new Vector3Int(12, 56, 0), new Vector3Int(12, 55, 0), new Vector3Int(13, 56, 0), new Vector3Int(13, 55, 0), new Vector3Int(14, 56, 0), new Vector3Int(14, 55, 0),
         new Vector3Int(14, 54, 0), new Vector3Int(14 ,53, 0), new Vector3Int(11, 53, 0), new Vector3Int(12, 54, 0), new Vector3Int(11, 54, 0), new Vector3Int(8, 56, 0), new Vector3Int(14, 35, 0), 
         new Vector3Int(-23, 53, 0), new Vector3Int(-21, 53, 0), new Vector3Int(-22, 32, 0), new Vector3Int(-20, 32, 0), new Vector3Int(16, 35, 0), new Vector3Int(-8, 54, 0), new Vector3Int(-7, 54, 0),
-        new Vector3Int(-6, 54, 0), new Vector3Int(-4, 54, 0), new Vector3Int(-3, 54, 0), new Vector3Int(-2, 54, 0), new Vector3Int(10, 32, 0), new Vector3Int(11, 32, 0)
+        new Vector3Int(-6, 54, 0), new Vector3Int(-4, 54, 0), new Vector3Int(-3, 54, 0), new Vector3Int(-2, 54, 0), new Vector3Int(10, 32, 0), new Vector3Int(11, 32, 0), new Vector3Int(9, 29, 0), new Vector3Int(7, 29, 0)
     };
 
     // this is filled in TreeLayerOrderSetter class - Scan all trees and rocks on map and add
