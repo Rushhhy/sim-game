@@ -11,7 +11,7 @@ public enum WorkState
     Logging,
     Producing,
     Watering,
-    Mine
+    Mining
 }
 
 [System.Serializable]
@@ -62,6 +62,11 @@ public class WorkBehavior : MonoBehaviour
     private List<Vector3> workPos;
     private Vector3 buildingPos;
     private int currentBuildingID;
+
+    private float validationDisabledUntil = 0f;
+    private const float VALIDATION_TRANSITION_DELAY = 3f;
+
+    public bool IsValidationTemporarilyDisabled => Time.time < validationDisabledUntil;
 
     [SerializeField] private GridData gridData;
     [SerializeField] private WorkBehaviorSettings settings;
@@ -129,7 +134,7 @@ public class WorkBehavior : MonoBehaviour
         {
             transportingBehavior = gameObject.AddComponent<TransportingBehavior>();
         }
-        transportingBehavior.Initialize(settings, pathfinder);
+        transportingBehavior.Initialize(settings, gridData);
 
         // Subscribe to transporting behavior events
         transportingBehavior.OnWorkPositionAvailable += OnWorkPositionBecameAvailable;
@@ -138,6 +143,14 @@ public class WorkBehavior : MonoBehaviour
     private void OnWorkPositionBecameAvailable()
     {
         SwitchToWorkState();
+    }
+
+    private void ResetSpriteFlip()
+    {
+        if (target?.SpriteRenderer != null)
+        {
+            target.SpriteRenderer.flipX = false; // Reset to default left-facing
+        }
     }
 
     public void StartWorking(int buildingID, Vector3 buildingPosition, List<Vector3> workPositions)
@@ -212,9 +225,10 @@ public class WorkBehavior : MonoBehaviour
                 }
                 break;
             case 24: // Hospital
-            default:
-                Debug.Log($"Setting work state to None for {gameObject.name}");
                 SetWorkStateToNone();
+                break;
+            default:
+                StartTransporting();
                 break;
         }
     }
@@ -223,10 +237,12 @@ public class WorkBehavior : MonoBehaviour
 
     public void StartTraining()
     {
+        ResetSpriteFlip();
         workState = WorkState.Training;
         Vector3? availablePos = CheckWorkPosAvailability();
         if (availablePos.HasValue)
         {
+            target.SpriteRenderer.sortingOrder = 0;
             trainingCoroutine = StartCoroutine(TrainingCoroutine(availablePos.Value));
         }
     }
@@ -242,10 +258,12 @@ public class WorkBehavior : MonoBehaviour
 
     public void StartBathing()
     {
+        ResetSpriteFlip();
         workState = WorkState.Bathing;
         Vector3? availablePos = CheckWorkPosAvailability();
         if (availablePos.HasValue)
         {
+            target.SpriteRenderer.sortingOrder = 0;
             bathingCoroutine = StartCoroutine(BathingCoroutine(availablePos.Value));
         }
     }
@@ -261,8 +279,22 @@ public class WorkBehavior : MonoBehaviour
 
     public void StartTransporting()
     {
+        ResetSpriteFlip();
+        // If coming from stationary work states, disable validation temporarily
+        if (workState == WorkState.Producing || workState == WorkState.Mining ||
+            workState == WorkState.Watering || workState == WorkState.Training ||
+            workState == WorkState.Bathing)
+        {
+            DisableValidationTemporarily();
+        }
+
         workState = WorkState.Transporting;
         transportingBehavior.StartTransporting();
+    }
+
+    private void DisableValidationTemporarily()
+    {
+        validationDisabledUntil = Time.time + VALIDATION_TRANSITION_DELAY;
     }
 
     public void StopTransporting()
@@ -272,10 +304,12 @@ public class WorkBehavior : MonoBehaviour
 
     public void StartProducing()
     {
+        ResetSpriteFlip();
         workState = WorkState.Producing;
         Vector3? availablePos = CheckWorkPosAvailability();
         if (availablePos.HasValue)
         {
+            target.SpriteRenderer.sortingOrder = 0;
             producingCoroutine = StartCoroutine(ProducingCoroutine(availablePos.Value));
         }
     }
@@ -291,16 +325,19 @@ public class WorkBehavior : MonoBehaviour
 
     public void StartWatering()
     {
+        ResetSpriteFlip();
         workState = WorkState.Watering;
         Vector3? availablePos = CheckWorkPosAvailability();
         if (availablePos.HasValue)
         {
+            target.SpriteRenderer.sortingOrder = 0;
             wateringCoroutine = StartCoroutine(WateringCoroutine(availablePos.Value));
         }
     }
 
     public void StopWatering()
     {
+        ResetSpriteFlip();
         if (wateringCoroutine != null)
         {
             StopCoroutine(wateringCoroutine);
@@ -310,10 +347,13 @@ public class WorkBehavior : MonoBehaviour
 
     public void StartMining()
     {
-        workState = WorkState.Mine;
+        ResetSpriteFlip();
+        workState = WorkState.Mining;
+        
         Vector3? availablePos = CheckWorkPosAvailability();
         if (availablePos.HasValue)
         {
+            target.SpriteRenderer.sortingOrder = 0;
             miningCoroutine = StartCoroutine(MiningCoroutine(availablePos.Value));
         }
     }
@@ -329,6 +369,7 @@ public class WorkBehavior : MonoBehaviour
 
     public void StartLogging()
     {
+        ResetSpriteFlip();
         workState = WorkState.Logging;
         loggingBehavior.StartLogging();
     }
@@ -545,6 +586,7 @@ public class WorkBehavior : MonoBehaviour
         StopAllWork();
         SetWorkStateToNone();
     }
+
 
     #endregion
 

@@ -64,12 +64,7 @@ public class IdleBehavior : MonoBehaviour
         // Find GridData if not assigned
         if (gridData == null)
         {
-            var placementSystem = GameObject.Find("PlacementSystem")?.GetComponent<PlacementSystem>();
-            if (placementSystem != null)
-            {
-                gridData = placementSystem.gridData;
-            }
-
+            gridData = GameObject.Find("PlacementSystem").GetComponent<PlacementSystem>().gridData;
             if (gridData == null)
             {
                 Debug.LogError($"GridData not found for IdleBehavior on {gameObject.name}");
@@ -77,7 +72,7 @@ public class IdleBehavior : MonoBehaviour
         }
 
         // Initialize pathfinder
-        if (gridData != null && settings?.pathfindingSettings != null)
+        if (gridData != null)
         {
             pathfinder = new GridPathfinder(gridData, settings.pathfindingSettings, gameObject.name);
         }
@@ -159,8 +154,9 @@ public class IdleBehavior : MonoBehaviour
             {
                 idleTargetPosition = targetPosition.Value;
 
-                // Move to target using improved pathfinding
-                yield return StartCoroutine(MoveToPositionWithAvoidance(idleTargetPosition));
+                // Move to target
+                float moveTime = Random.Range(settings.moveTimeMin, settings.moveTimeMax);
+                yield return StartCoroutine(MoveToPositionWithFlip(idleTargetPosition, moveTime));
 
                 if (!isIdling || !target.ShouldContinueIdling) break;
             }
@@ -174,48 +170,45 @@ public class IdleBehavior : MonoBehaviour
         isIdling = false;
     }
 
-    private IEnumerator MoveToPositionWithAvoidance(Vector3 targetPos)
+    private IEnumerator MoveToPositionWithFlip(Vector3 targetPos, float duration)
     {
+        Vector3 startPos = target.Transform.position;
+        float elapsed = 0f;
+
         // Play walk animation
         if (target.Animator != null)
         {
             target.Animator.Play(settings.walkAnimationName);
         }
 
-        float maxMoveTime = Random.Range(settings.moveTimeMin, settings.moveTimeMax);
-        float elapsed = 0f;
-
-        while (elapsed < maxMoveTime && isIdling && target.ShouldContinueIdling)
+        // Pre-validate the entire path before starting movement
+        if (!pathfinder.PreValidatePath(startPos, targetPos))
         {
-            Vector3 currentPos = target.Transform.position;
+            yield break; // Exit immediately if path is blocked
+        }
 
-            // Check if we're close enough to the target
-            if (Vector3.Distance(currentPos, targetPos) < 0.1f)
+        Vector3 lastValidPosition = startPos;
+
+        while (elapsed < duration && isIdling && target.ShouldContinueIdling)
+        {
+            elapsed += Time.deltaTime;
+            float progress = elapsed / duration;
+
+            // Validate movement path with lookahead
+            if (!pathfinder.ValidateMovementPath(startPos, targetPos, progress))
             {
-                target.Transform.position = targetPos;
-                break;
+                break; // Stop movement if path becomes blocked
             }
 
-            // Get avoidance direction from pathfinder
-            Vector3 moveDirection = pathfinder.GetAvoidanceDirection(currentPos, targetPos);
-
-            if (moveDirection == Vector3.zero)
-            {
-                // No valid direction found, try repositioning
-                RepositionToValidPosition();
-                yield return new WaitForSeconds(0.1f); // Small delay before trying again
-                elapsed += 0.1f;
-                continue;
-            }
-
-            // Move in the calculated direction
-            Vector3 newPosition = currentPos + moveDirection * settings.movementSpeed * Time.deltaTime;
-            target.Transform.position = newPosition;
+            // Calculate and move to current position
+            Vector3 currentIntendedPos = Vector3.Lerp(startPos, targetPos, progress);
+            target.Transform.position = currentIntendedPos;
+            lastValidPosition = currentIntendedPos;
 
             // Handle sprite flipping
             if (settings.enableSpriteFlipping)
             {
-                HandleSpriteFlipping(moveDirection);
+                HandleSpriteFlipping(targetPos - startPos);
             }
 
             // Update sorting order
@@ -224,43 +217,24 @@ public class IdleBehavior : MonoBehaviour
                 target.SpriteRenderer.sortingOrder = (int)(-target.Transform.position.y * 10);
             }
 
-            elapsed += Time.deltaTime;
             yield return null;
+        }
+
+        // Ensure final position is walkable before setting it
+        if (isIdling && target.ShouldContinueIdling && pathfinder.IsPositionWalkable(targetPos))
+        {
+            target.Transform.position = targetPos;
+        }
+        else
+        {
+            // Stay at last valid position
+            target.Transform.position = lastValidPosition;
         }
 
         // Return to idle animation
         if (target.Animator != null)
         {
             target.Animator.Play(settings.idleAnimationName);
-        }
-    }
-
-    /// <summary>
-    /// Repositions the villager to a valid walkable position
-    /// </summary>
-    private void RepositionToValidPosition()
-    {
-        // Try to use the PositionValidator component if available
-        PositionValidator positionValidator = GetComponent<PositionValidator>();
-        if (positionValidator != null)
-        {
-            positionValidator.ValidateAndRepositionImmediate();
-        }
-        else
-        {
-            // Fallback: use pathfinder directly if PositionValidator is not available
-            if (pathfinder != null)
-            {
-                Vector3 currentPos = target.Transform.position;
-                if (!pathfinder.IsPositionWalkable(currentPos))
-                {
-                    Vector3? validPos = pathfinder.FindNearestWalkablePosition(currentPos);
-                    if (validPos.HasValue)
-                    {
-                        target.Transform.position = validPos.Value;
-                    }
-                }
-            }
         }
     }
 

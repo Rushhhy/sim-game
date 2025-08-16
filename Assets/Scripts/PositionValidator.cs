@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 [System.Serializable]
 public class PositionValidatorSettings
@@ -34,9 +35,9 @@ public class PositionValidator : MonoBehaviour
     private Coroutine validationCoroutine;
     private bool isValidating = false;
 
-    // References to check villager state
-    private Villager villager;
-    private WorkBehavior workBehavior;
+    // Events for external systems to listen to
+    public System.Action<Vector3, Vector3> OnObjectRepositioned; // oldPos, newPos
+    public System.Action OnRepositionFailed;
 
     private void Awake()
     {
@@ -47,10 +48,6 @@ public class PositionValidator : MonoBehaviour
                 Debug.LogError($"PositionValidator requires a component that implements IPositionValidationTarget on {gameObject.name}");
             return;
         }
-
-        // Get villager and work behavior references
-        villager = GetComponent<Villager>();
-        workBehavior = GetComponent<WorkBehavior>();
 
         // Find GridData if not assigned
         if (gridData == null)
@@ -111,67 +108,40 @@ public class PositionValidator : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Checks if position validation should be active based on villager state
-    /// Only validates during Idle state or Transporting work state
-    /// </summary>
-    private bool ShouldValidatePosition()
-    {
-        if (!target.IsValidationEnabled)
-            return false;
-
-        // If no villager component, use the general validation enabled flag
-        if (villager == null)
-            return target.IsValidationEnabled;
-
-        // Only validate during specific states
-        switch (villager.currentState)
-        {
-            case VillagerState.Idle:
-                return true;
-
-            case VillagerState.Working:
-                // During working state, only validate if transporting
-                return IsVillagerTransporting();
-
-            case VillagerState.Base:
-            default:
-                return false;
-        }
-    }
-
-    /// <summary>
-    /// Checks if the villager is currently in transporting work state
-    /// </summary>
-    private bool IsVillagerTransporting()
-    {
-        if (workBehavior == null) return false;
-
-        // We need to access the current work state from WorkBehavior
-        // Since workState is private, we'll use reflection or add a public property
-        // For now, we'll add a public property to WorkBehavior
-        return workBehavior.GetCurrentWorkState() == WorkState.Transporting;
-    }
-
     private IEnumerator ValidationCoroutine()
     {
         while (isValidating)
         {
             yield return new WaitForSeconds(settings.validationCheckInterval);
 
-            if (!isValidating || !ShouldValidatePosition())
-                continue;
+            if (!isValidating || !target.IsValidationEnabled) continue;
 
             Vector3 currentPosition = target.Transform.position;
 
-            if (!pathfinder.IsPositionWalkable(currentPosition))
+            if (!WalkabilityUtility.IsPositionWalkable(pathfinder.WorldToGridPosition(currentPosition), gridData))
             {
+                if (settings.enableDebugLogs)
+                    Debug.Log($"Invalid position detected for {gameObject.name} at {currentPosition}");
+
                 Vector3? newPosition = FindValidRepositionPosition(currentPosition);
 
                 if (newPosition.HasValue)
                 {
                     Vector3 oldPos = currentPosition;
                     target.Transform.position = newPosition.Value;
+
+                    // Notify external listeners
+                    OnObjectRepositioned?.Invoke(oldPos, newPosition.Value);
+
+                    if (settings.enableDebugLogs)
+                        Debug.Log($"Repositioned {gameObject.name} from {oldPos} to {newPosition.Value}");
+                }
+                else
+                {
+                    if (settings.enableDebugLogs)
+                        Debug.LogWarning($"Failed to find valid reposition for {gameObject.name} at {currentPosition}");
+
+                    OnRepositionFailed?.Invoke();
                 }
             }
         }
@@ -198,12 +168,12 @@ public class PositionValidator : MonoBehaviour
     // Public method to force immediate validation and repositioning
     public bool ValidateAndRepositionImmediate()
     {
-        if (target == null || pathfinder == null || !ShouldValidatePosition())
+        if (target == null || pathfinder == null || !target.IsValidationEnabled)
             return false;
 
         Vector3 currentPosition = target.Transform.position;
 
-        if (!pathfinder.IsPositionWalkable(currentPosition))
+        if (!WalkabilityUtility.IsPositionWalkable(pathfinder.WorldToGridPosition(currentPosition), gridData))
         {
             Vector3? newPosition = FindValidRepositionPosition(currentPosition);
 
@@ -211,11 +181,19 @@ public class PositionValidator : MonoBehaviour
             {
                 Vector3 oldPos = currentPosition;
                 target.Transform.position = newPosition.Value;
+                OnObjectRepositioned?.Invoke(oldPos, newPosition.Value);
+
+                if (settings.enableDebugLogs)
+                    Debug.Log($"Immediate reposition of {gameObject.name} from {oldPos} to {newPosition.Value}");
 
                 return true;
             }
             else
             {
+                if (settings.enableDebugLogs)
+                    Debug.LogWarning($"Immediate reposition failed for {gameObject.name} at {currentPosition}");
+
+                OnRepositionFailed?.Invoke();
                 return false;
             }
         }
@@ -226,10 +204,16 @@ public class PositionValidator : MonoBehaviour
     // Public method to check if current position is valid without repositioning
     public bool IsCurrentPositionValid()
     {
-        if (target == null || pathfinder == null)
+        if (target == null)
             return false;
 
-        return pathfinder.IsPositionWalkable(target.Transform.position);
+        Vector3Int gridPos = new Vector3Int(
+            Mathf.FloorToInt(target.Transform.position.x),
+            Mathf.FloorToInt(target.Transform.position.y),
+            0
+        );
+
+        return WalkabilityUtility.IsPositionWalkable(gridPos, gridData);
     }
 
     // Public method for external systems to request validation
@@ -246,7 +230,7 @@ public class PositionValidator : MonoBehaviour
     {
         yield return null; // Wait one frame for grid updates
 
-        if (target != null && ShouldValidatePosition())
+        if (target != null && target.IsValidationEnabled)
         {
             ValidateAndRepositionImmediate();
         }
@@ -271,26 +255,8 @@ public class PositionValidator : MonoBehaviour
         // Draw current position validation status
         if (pathfinder != null)
         {
-            bool shouldValidate = ShouldValidatePosition();
-            bool isPositionValid = pathfinder.IsPositionWalkable(pos);
-
-            if (!shouldValidate)
-            {
-                Gizmos.color = Color.gray; // Validation disabled
-            }
-            else
-            {
-                Gizmos.color = isPositionValid ? Color.green : Color.red;
-            }
-
+            Gizmos.color = WalkabilityUtility.IsPositionWalkable(pathfinder.WorldToGridPosition(pos), gridData) ? Color.green : Color.red;
             Gizmos.DrawWireCube(pos, Vector3.one * 0.5f);
-
-            // Draw state info
-            if (villager != null)
-            {
-                Vector3 textPos = pos + Vector3.up * 1f;
-                // Note: Gizmos can't draw text, but this shows the concept
-            }
         }
     }
 

@@ -105,20 +105,20 @@ public class LoggingBehavior : MonoBehaviour
             yield break;
         }
 
-        // Use pathfinding
+/*        // Use pathfinding
         while (Vector3.Distance(target.Transform.position, targetPosition) > 0.1f)
         {
             Vector3 currentPos = target.Transform.position;
-            Vector3 moveDirection = pathfinder.GetAvoidanceDirection(currentPos, targetPosition);
+            //Vector3 moveDirection = pathfinder.GetAvoidanceDirection(currentPos, targetPosition);
 
-            if (moveDirection == Vector3.zero)
+            //if (moveDirection == Vector3.zero)
             {
                 RepositionToValidPosition();
                 yield return new WaitForSeconds(0.2f);
                 continue;
             }
 
-            Vector3 newPosition = currentPos + moveDirection * settings.movementSpeed * Time.deltaTime;
+            //Vector3 newPosition = currentPos + moveDirection * settings.movementSpeed * Time.deltaTime;
 
             if (pathfinder.IsPositionWalkable(newPosition))
             {
@@ -137,7 +137,7 @@ public class LoggingBehavior : MonoBehaviour
             }
 
             yield return null;
-        }
+        }*/
     }
 
     private GameObject FindClosestTree()
@@ -182,7 +182,7 @@ public class LoggingBehavior : MonoBehaviour
         PositionValidator positionValidator = GetComponent<PositionValidator>();
         if (positionValidator != null)
         {
-            positionValidator.ValidateAndRepositionImmediate();
+            //positionValidator.ValidateAndRepositionImmediate();
         }
         else
         {

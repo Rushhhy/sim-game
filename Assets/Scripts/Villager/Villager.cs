@@ -15,11 +15,17 @@ public class Villager : MonoBehaviour, IIdleBehaviorTarget, IWorkBehaviorTarget,
     public int Index;
     public VillagerState currentState;
 
+    public bool IsValidationEnabled =>
+        !workBehavior.IsValidationTemporarilyDisabled &&
+        (currentState == VillagerState.Idle ||
+         workBehavior.GetCurrentWorkState() == WorkState.Transporting ||
+         workBehavior.GetCurrentWorkState() == WorkState.Logging);
+
     private PlacementSystem placementSystem;
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] private IdleBehavior idleBehavior;
     [SerializeField] private WorkBehavior workBehavior;
-    private PositionValidator positionValidator;
+    // REMOVED: private PositionValidator positionValidator;
 
     #region IIdleBehaviorTarget Implementation
     public Transform Transform => transform;
@@ -33,9 +39,7 @@ public class Villager : MonoBehaviour, IIdleBehaviorTarget, IWorkBehaviorTarget,
     // Transform, Animator, SpriteRenderer are already implemented above
     #endregion
 
-    #region IPositionValidationTarget Implementation
-    public bool IsValidationEnabled => currentState != VillagerState.Base; // Only validate when villager is in village
-    #endregion
+    // REMOVED: #region IPositionValidationTarget Implementation
 
     // ... all your existing fields ...
     public int happiness;
@@ -68,7 +72,7 @@ public class Villager : MonoBehaviour, IIdleBehaviorTarget, IWorkBehaviorTarget,
     private void Awake()
     {
         idleBehavior = GetComponent<IdleBehavior>();
-        positionValidator = GetComponent<PositionValidator>();
+        // REMOVED: positionValidator = GetComponent<PositionValidator>();
         workBehavior = GetComponent<WorkBehavior>();
 
         if (spriteRenderer == null)
@@ -131,11 +135,7 @@ public class Villager : MonoBehaviour, IIdleBehaviorTarget, IWorkBehaviorTarget,
             idleBehavior.StartIdling();
         }
 
-        // Force position validation check after housing
-        if (positionValidator != null)
-        {
-            positionValidator.RequestValidation();
-        }
+        // REMOVED: Force position validation check after housing
     }
 
     public void Employed(int buildingIndex, int selectedSlot)
@@ -183,11 +183,7 @@ public class Villager : MonoBehaviour, IIdleBehaviorTarget, IWorkBehaviorTarget,
             Debug.LogError($"WorkBehavior component not found on villager {gameObject.name}");
         }
 
-        // Validate position after employment
-        if (positionValidator != null)
-        {
-            positionValidator.RequestValidation();
-        }
+        // REMOVED: Validate position after employment
     }
 
     /// <summary>
@@ -236,11 +232,7 @@ public class Villager : MonoBehaviour, IIdleBehaviorTarget, IWorkBehaviorTarget,
             currentState = VillagerState.Base;
         }
 
-        // Validate position after state change
-        if (positionValidator != null)
-        {
-            positionValidator.RequestValidation();
-        }
+        // REMOVED: Validate position after state change
     }
 
     public void RemoveFromVillage()

@@ -7,13 +7,19 @@ public class TransportingBehavior : MonoBehaviour
     [SerializeField] private WorkBehaviorSettings settings;
 
     private IWorkBehaviorTarget target;
-    private GridPathfinder pathfinder;
+    private AStarPathfinder pathfinder;
     private Coroutine transportingCoroutine;
+    private Coroutine movementCoroutine;
 
     // Dependencies
     private Vector3 buildingPos;
     private List<Vector3> workPos;
     private int currentBuildingID;
+
+    // Current path and movement state
+    private List<Vector3> currentPath;
+    private int currentPathIndex;
+    private bool isMoving = false;
 
     public bool IsTransporting => transportingCoroutine != null;
 
@@ -29,10 +35,19 @@ public class TransportingBehavior : MonoBehaviour
         }
     }
 
-    public void Initialize(WorkBehaviorSettings behaviorSettings, GridPathfinder gridPathfinder)
+    public void Initialize(WorkBehaviorSettings behaviorSettings, GridData gridData)
     {
         settings = behaviorSettings;
-        pathfinder = gridPathfinder;
+
+        // Create A* pathfinder
+        if (gridData != null && settings.pathfindingSettings != null)
+        {
+            pathfinder = new AStarPathfinder(gridData, settings.pathfindingSettings, gameObject.name);
+        }
+        else
+        {
+            Debug.LogError($"Cannot initialize pathfinder for {gameObject.name} - missing GridData or PathfindingSettings");
+        }
     }
 
     public void SetBuildingData(int buildingID, Vector3 buildingPosition, List<Vector3> workPositions)
@@ -62,122 +77,226 @@ public class TransportingBehavior : MonoBehaviour
             StopCoroutine(transportingCoroutine);
             transportingCoroutine = null;
         }
+
+        if (movementCoroutine != null)
+        {
+            StopCoroutine(movementCoroutine);
+            movementCoroutine = null;
+        }
+
+        isMoving = false;
+        currentPath = null;
+        currentPathIndex = 0;
     }
 
     private IEnumerator TransportingCoroutine()
     {
-        Debug.Log($"=== TransportingCoroutine ENTRY for {gameObject.name} ===");
-
         yield return null; // Simple yield first
-        Debug.Log($"TransportingCoroutine first yield complete");
 
-        // Reposition villager to valid position
-        Debug.Log($"Repositioning villager for {gameObject.name}");
-        RepositionToValidPosition();
+        // Reposition villager to valid position if needed
+        yield return StartCoroutine(RepositionToValidPosition());
 
         while (IsTransporting)
         {
-            Debug.Log($"Transport loop iteration for {gameObject.name}");
-
             // Move to random market position with box animation
             Vector3 marketPos = GetRandomAvailableMarketPosition();
-            Debug.Log($"Moving to market position: {marketPos} for {gameObject.name}");
 
-            yield return StartCoroutine(MoveToPosition(marketPos, settings.boxWalkAnimationName));
-            Debug.Log($"Market movement complete for {gameObject.name}");
+            yield return StartCoroutine(MoveToPositionWithPathfinding(marketPos, settings.boxWalkAnimationName));
 
             if (!IsTransporting) yield break;
 
             // Switch to walk animation and return to building
-            Debug.Log($"Returning to building position: {buildingPos} for {gameObject.name}");
-            yield return StartCoroutine(MoveToPosition(buildingPos, settings.walkAnimationName));
-            Debug.Log($"Building return complete for {gameObject.name}");
+            yield return StartCoroutine(MoveToPositionWithPathfinding(buildingPos, settings.walkAnimationName));
 
             if (!IsTransporting) yield break;
 
             // Check if work position is now available
             if (HasAvailableWorkPosition())
             {
-                Debug.Log($"Work position available, notifying for {gameObject.name}");
                 OnWorkPositionAvailable?.Invoke();
                 yield break;
             }
 
-            Debug.Log($"No work position available, continuing transport for {gameObject.name}");
             yield return new WaitForSeconds(1f);
         }
-
-        Debug.Log($"=== TransportingCoroutine END for {gameObject.name} ===");
     }
 
-    private IEnumerator MoveToPosition(Vector3 targetPosition, string animationName)
+    private IEnumerator MoveToPositionWithPathfinding(Vector3 targetPosition, string animationName)
     {
-        Debug.Log($"=== MoveToPosition START for {gameObject.name} ===");
-        Debug.Log($"Target: {targetPosition}, Pathfinder null: {pathfinder == null}");
+        // Play animation
+        if (target.Animator != null)
+        {
+            target.Animator.Play(animationName);
+        }
 
-        target.Animator.Play(animationName);
-
-        // If no pathfinder, use simple movement
+        // If no pathfinder, fall back to simple movement
         if (pathfinder == null)
         {
-            Debug.Log($"No pathfinder, using simple movement for {gameObject.name}");
-            while (Vector3.Distance(target.Transform.position, targetPosition) > 0.1f)
-            {
-                target.Transform.position = Vector3.MoveTowards(
-                    target.Transform.position,
-                    targetPosition,
-                    settings.movementSpeed * Time.deltaTime
-                );
+            Debug.LogWarning($"No pathfinder available for {gameObject.name}, using simple movement");
+            yield return StartCoroutine(SimpleMovement(targetPosition));
+            yield break;
+        }
 
+        // Find path using A*
+        Vector3 startPos = target.Transform.position;
+        currentPath = pathfinder.FindPath(startPos, targetPosition);
+
+        if (currentPath == null || currentPath.Count == 0)
+        {
+            // Try to find path to area around target (larger radius)
+            currentPath = pathfinder.FindPathToArea(startPos, targetPosition, 3f);
+
+            if (currentPath == null)
+            {
+                Debug.LogWarning($"No path found for {gameObject.name}, using simple movement fallback");
+                yield return StartCoroutine(SimpleMovement(targetPosition));
+                yield break;
+            }
+        }
+
+        // Follow the path
+        yield return StartCoroutine(FollowPath());
+    }
+
+    private IEnumerator FollowPath()
+    {
+        if (currentPath == null || currentPath.Count == 0)
+        {
+            Debug.LogWarning($"No path to follow for {gameObject.name}");
+            yield break;
+        }
+
+        isMoving = true;
+        currentPathIndex = 0;
+
+        // Start from the first waypoint (skip if we're already very close to it)
+        if (Vector3.Distance(target.Transform.position, currentPath[0]) < 0.1f)
+        {
+            currentPathIndex = 1;
+        }
+
+        while (currentPathIndex < currentPath.Count && isMoving)
+        {
+            Vector3 currentTarget = currentPath[currentPathIndex];
+
+            // Move towards current waypoint
+            while (Vector3.Distance(target.Transform.position, currentTarget) > 0.1f && isMoving)
+            {
+                // Check if current position is still walkable
+                if (!pathfinder.IsPositionWalkable(pathfinder.WorldToGridPosition(target.Transform.position)))
+                {
+                    yield return StartCoroutine(RepositionToValidPosition());
+                    yield break;
+                }
+
+                // Move towards waypoint
+                Vector3 direction = (currentTarget - target.Transform.position).normalized;
+                Vector3 newPosition = target.Transform.position + direction * settings.movementSpeed * Time.deltaTime;
+
+                // Check if new position would be walkable
+                if (pathfinder.IsPositionWalkable(pathfinder.WorldToGridPosition(newPosition)))
+                {
+                    target.Transform.position = newPosition;
+                }
+                else
+                {
+                    // Recalculate path from current position
+                    Vector3 finalTarget = currentPath[currentPath.Count - 1];
+                    currentPath = pathfinder.FindPath(target.Transform.position, finalTarget);
+                    if (currentPath == null)
+                    {
+                        yield return StartCoroutine(RepositionToValidPosition());
+                        yield break;
+                    }
+                    currentPathIndex = 0;
+                    break;
+                }
+
+                // Handle sprite flipping
                 if (settings.enableSpriteFlipping)
                 {
-                    HandleSpriteFlipping(targetPosition);
+                    HandleSpriteFlipping(direction);
+                }
+
+                // Update sorting order based on position
+                if (target.SpriteRenderer != null)
+                {
+                    target.SpriteRenderer.sortingOrder = Mathf.RoundToInt(-target.Transform.position.y * 10);
                 }
 
                 yield return null;
             }
-            Debug.Log($"Simple movement complete for {gameObject.name}");
-            yield break;
+
+            // Move to next waypoint
+            currentPathIndex++;
         }
 
-        // Use pathfinding
-        Debug.Log($"Using pathfinding for {gameObject.name}");
+        isMoving = false;
+        currentPath = null;
+        currentPathIndex = 0;
+    }
+
+    private IEnumerator SimpleMovement(Vector3 targetPosition)
+    {
         while (Vector3.Distance(target.Transform.position, targetPosition) > 0.1f)
         {
-            Vector3 currentPos = target.Transform.position;
-            Vector3 moveDirection = pathfinder.GetAvoidanceDirection(currentPos, targetPosition);
-
-            if (moveDirection == Vector3.zero)
-            {
-                Debug.Log($"No valid direction found for {gameObject.name}, repositioning");
-                RepositionToValidPosition();
-                yield return new WaitForSeconds(0.2f);
-                continue;
-            }
-
-            Vector3 newPosition = currentPos + moveDirection * settings.movementSpeed * Time.deltaTime;
-
-            if (pathfinder.IsPositionWalkable(newPosition))
-            {
-                target.Transform.position = newPosition;
-            }
-            else
-            {
-                Debug.Log($"Calculated position not walkable for {gameObject.name}, repositioning");
-                RepositionToValidPosition();
-                yield return new WaitForSeconds(0.2f);
-                continue;
-            }
+            Vector3 direction = (targetPosition - target.Transform.position).normalized;
+            target.Transform.position = Vector3.MoveTowards(
+                target.Transform.position,
+                targetPosition,
+                settings.movementSpeed * Time.deltaTime
+            );
 
             if (settings.enableSpriteFlipping)
             {
-                HandleSpriteFlipping(targetPosition);
+                HandleSpriteFlipping(direction);
+            }
+
+            // Update sorting order
+            if (target.SpriteRenderer != null)
+            {
+                target.SpriteRenderer.sortingOrder = Mathf.RoundToInt(-target.Transform.position.y * 10);
             }
 
             yield return null;
         }
+    }
 
-        Debug.Log($"=== MoveToPosition END for {gameObject.name} ===");
+    private IEnumerator RepositionToValidPosition()
+    {
+        if (pathfinder == null)
+        {
+            Debug.LogWarning($"No pathfinder available for repositioning {gameObject.name}");
+            yield break;
+        }
+
+        Vector3 currentPos = target.Transform.position;
+        Vector3Int gridPos = pathfinder.WorldToGridPosition(currentPos);
+
+        if (!pathfinder.IsPositionWalkable(gridPos))
+        {
+            // Try to find a nearby walkable position
+            for (int radius = 1; radius <= 5; radius++)
+            {
+                for (int x = -radius; x <= radius; x++)
+                {
+                    for (int y = -radius; y <= radius; y++)
+                    {
+                        if (Mathf.Abs(x) + Mathf.Abs(y) != radius) continue; // Only check perimeter
+
+                        Vector3Int testPos = gridPos + new Vector3Int(x, y, 0);
+                        if (pathfinder.IsPositionWalkable(testPos))
+                        {
+                            Vector3 newWorldPos = pathfinder.GridToWorldPosition(testPos);
+                            target.Transform.position = newWorldPos;
+                            yield break;
+                        }
+                    }
+                }
+            }
+
+            Debug.LogError($"Could not find valid position for {gameObject.name}");
+        }
     }
 
     private bool HasAvailableWorkPosition()
@@ -234,48 +353,36 @@ public class TransportingBehavior : MonoBehaviour
         return availableMarkets[Random.Range(0, availableMarkets.Count)];
     }
 
-    private void HandleSpriteFlipping(Vector3 targetPosition)
+    private void HandleSpriteFlipping(Vector3 direction)
     {
-        if (target.SpriteRenderer == null) return;
+        if (target.SpriteRenderer == null || Mathf.Abs(direction.x) < 0.1f) return;
 
-        float direction = targetPosition.x - target.Transform.position.x;
-
-        if (settings.isLeftFacingDefault)
-        {
-            target.SpriteRenderer.flipX = direction > 0;
-        }
-        else
-        {
-            target.SpriteRenderer.flipX = direction < 0;
-        }
-    }
-
-    private void RepositionToValidPosition()
-    {
-        PositionValidator positionValidator = GetComponent<PositionValidator>();
-        if (positionValidator != null)
-        {
-            positionValidator.ValidateAndRepositionImmediate();
-        }
-        else
-        {
-            if (pathfinder != null)
-            {
-                Vector3 currentPos = target.Transform.position;
-                if (!pathfinder.IsPositionWalkable(currentPos))
-                {
-                    Vector3? validPos = pathfinder.FindNearestWalkablePosition(currentPos);
-                    if (validPos.HasValue)
-                    {
-                        target.Transform.position = validPos.Value;
-                    }
-                }
-            }
-        }
+        // Since animations naturally face left, flip when moving right
+        target.SpriteRenderer.flipX = direction.x > 0;
     }
 
     private void OnDestroy()
     {
         StopTransporting();
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        // Debug visualization
+        if (currentPath != null && currentPath.Count > 0)
+        {
+            Gizmos.color = Color.blue;
+            for (int i = 0; i < currentPath.Count - 1; i++)
+            {
+                Gizmos.DrawLine(currentPath[i], currentPath[i + 1]);
+            }
+
+            // Highlight current target
+            if (currentPathIndex < currentPath.Count)
+            {
+                Gizmos.color = Color.red;
+                Gizmos.DrawWireSphere(currentPath[currentPathIndex], 0.3f);
+            }
+        }
     }
 }
