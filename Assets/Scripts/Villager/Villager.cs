@@ -16,10 +16,9 @@ public class Villager : MonoBehaviour, IIdleBehaviorTarget, IWorkBehaviorTarget,
     public VillagerState currentState;
 
     public bool IsValidationEnabled =>
-        !workBehavior.IsValidationTemporarilyDisabled &&
-        (currentState == VillagerState.Idle ||
-         workBehavior.GetCurrentWorkState() == WorkState.Transporting ||
-         workBehavior.GetCurrentWorkState() == WorkState.Logging);
+        currentState == VillagerState.Idle ||
+        workBehavior.GetCurrentWorkState() == WorkState.Transporting ||
+        workBehavior.GetCurrentWorkState() == WorkState.Logging;
 
     private PlacementSystem placementSystem;
     [SerializeField] private SpriteRenderer spriteRenderer;

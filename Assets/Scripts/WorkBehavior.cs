@@ -63,11 +63,6 @@ public class WorkBehavior : MonoBehaviour
     private Vector3 buildingPos;
     private int currentBuildingID;
 
-    private float validationDisabledUntil = 0f;
-    private const float VALIDATION_TRANSITION_DELAY = 3f;
-
-    public bool IsValidationTemporarilyDisabled => Time.time < validationDisabledUntil;
-
     [SerializeField] private GridData gridData;
     [SerializeField] private WorkBehaviorSettings settings;
 
@@ -280,23 +275,9 @@ public class WorkBehavior : MonoBehaviour
     public void StartTransporting()
     {
         ResetSpriteFlip();
-        // If coming from stationary work states, disable validation temporarily
-        if (workState == WorkState.Producing || workState == WorkState.Mining ||
-            workState == WorkState.Watering || workState == WorkState.Training ||
-            workState == WorkState.Bathing)
-        {
-            DisableValidationTemporarily();
-        }
-
         workState = WorkState.Transporting;
         transportingBehavior.StartTransporting();
     }
-
-    private void DisableValidationTemporarily()
-    {
-        validationDisabledUntil = Time.time + VALIDATION_TRANSITION_DELAY;
-    }
-
     public void StopTransporting()
     {
         transportingBehavior.StopTransporting();

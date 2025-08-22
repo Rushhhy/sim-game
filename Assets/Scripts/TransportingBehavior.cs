@@ -53,7 +53,7 @@ public class TransportingBehavior : MonoBehaviour
     public void SetBuildingData(int buildingID, Vector3 buildingPosition, List<Vector3> workPositions)
     {
         currentBuildingID = buildingID;
-        buildingPos = buildingPosition;
+        buildingPos = buildingPosition + new Vector3(1, 0, 0);
         workPos = workPositions;
     }
 
@@ -266,7 +266,6 @@ public class TransportingBehavior : MonoBehaviour
     {
         if (pathfinder == null)
         {
-            Debug.LogWarning($"No pathfinder available for repositioning {gameObject.name}");
             yield break;
         }
 
@@ -275,7 +274,10 @@ public class TransportingBehavior : MonoBehaviour
 
         if (!pathfinder.IsPositionWalkable(gridPos))
         {
-            // Try to find a nearby walkable position
+            // Instead of searching from current position, search from building position
+            Vector3Int buildingGridPos = pathfinder.WorldToGridPosition(buildingPos);
+
+            // Try to find a walkable position near the building
             for (int radius = 1; radius <= 5; radius++)
             {
                 for (int x = -radius; x <= radius; x++)
@@ -284,7 +286,7 @@ public class TransportingBehavior : MonoBehaviour
                     {
                         if (Mathf.Abs(x) + Mathf.Abs(y) != radius) continue; // Only check perimeter
 
-                        Vector3Int testPos = gridPos + new Vector3Int(x, y, 0);
+                        Vector3Int testPos = buildingGridPos + new Vector3Int(x, y, 0);
                         if (pathfinder.IsPositionWalkable(testPos))
                         {
                             Vector3 newWorldPos = pathfinder.GridToWorldPosition(testPos);
@@ -295,7 +297,7 @@ public class TransportingBehavior : MonoBehaviour
                 }
             }
 
-            Debug.LogError($"Could not find valid position for {gameObject.name}");
+            Debug.LogError($"Could not find valid position near building for {gameObject.name}");
         }
     }
 
