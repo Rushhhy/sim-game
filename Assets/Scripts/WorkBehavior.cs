@@ -47,6 +47,7 @@ public class WorkBehaviorSettings
 
     [Header("Pathfinding")]
     public PathfindingSettings pathfindingSettings;
+
 }
 
 public interface IWorkBehaviorTarget
@@ -64,7 +65,7 @@ public class WorkBehavior : MonoBehaviour
     private int currentBuildingID;
 
     [SerializeField] private GridData gridData;
-    [SerializeField] private WorkBehaviorSettings settings;
+    [SerializeField] public WorkBehaviorSettings settings;
 
     private IWorkBehaviorTarget target;
     private GridPathfinder pathfinder;
@@ -144,7 +145,13 @@ public class WorkBehavior : MonoBehaviour
     {
         if (target?.SpriteRenderer != null)
         {
-            target.SpriteRenderer.flipX = false; // Reset to default left-facing
+            target.SpriteRenderer.flipX = false; // Reset flipX to default left-facing
+        }
+
+        if (target?.Transform != null)
+        {
+            Vector3 scale = target.Transform.localScale;
+            target.Transform.localScale = new Vector3(Mathf.Abs(scale.x), scale.y, scale.z);
         }
     }
 
@@ -549,6 +556,7 @@ public class WorkBehavior : MonoBehaviour
     public void SetWorkStateToNone()
     {
         StopAllWork();
+        ResetSpriteFlip();
         workState = WorkState.None;
 
         if (target?.Transform != null)

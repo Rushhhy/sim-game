@@ -40,6 +40,11 @@ public class PathfindingSettings
         corridorPositions.Add(new Vector3Int(8, 29, 0));
         corridorPositions.Add(new Vector3Int(8, 30, 0));
 
+        corridorPositions.Remove(new Vector3Int(3, 31, 0));
+        corridorPositions.Remove(new Vector3Int(4, 31, 0));
+        corridorPositions.Remove(new Vector3Int(5, 31, 0));
+        corridorPositions.Remove(new Vector3Int(6, 31, 0));
+
         return corridorPositions;
     }
 }

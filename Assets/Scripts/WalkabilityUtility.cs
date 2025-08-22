@@ -12,7 +12,8 @@ public static class WalkabilityUtility
         new Vector3Int(0, 30, 0),
         new Vector3Int(2, 30, 0),
         new Vector3Int(7, 30, 0),
-        new Vector3Int(9, 30, 0)
+        new Vector3Int(9, 30, 0),
+        new Vector3Int(12, 33, 0)
     };
 
     /// <summary>

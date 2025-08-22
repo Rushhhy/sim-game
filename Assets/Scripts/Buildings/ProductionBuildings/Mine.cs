@@ -7,7 +7,7 @@ public class Mine : ProductionBuilding
     {
         base.Awake();
 
-        workPositions = new List<Vector3>() { new Vector3(-0.85f, 1.1f, 0), new Vector3(3.05f, 1.1f, 0) };
+        workPositions = new List<Vector3>() { new Vector3(0, 1.1f, 0), new Vector3(3.05f, 1.1f, 0) };
 
         inputMethodBase = new int[] { 0, 0 };
         inputMethodOne = new int[] { 1, 1 };

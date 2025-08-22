@@ -82,6 +82,8 @@ public class IdleBehavior : MonoBehaviour
     {
         if (isIdling || target == null || pathfinder == null) return;
 
+        ResetSpriteOrientation();
+
         // Validate starting position and reposition if necessary
         if (!pathfinder.IsPositionWalkable(idleStartPosition))
         {
@@ -246,5 +248,20 @@ public class IdleBehavior : MonoBehaviour
 
         float scaleX = shouldFlip ? -Mathf.Abs(target.Transform.localScale.x) : Mathf.Abs(target.Transform.localScale.x);
         target.Transform.localScale = new Vector3(scaleX, target.Transform.localScale.y, target.Transform.localScale.z);
+    }
+
+    private void ResetSpriteOrientation()
+    {
+        if (target?.SpriteRenderer != null)
+        {
+            target.SpriteRenderer.flipX = false; // Reset flipX from WorkBehavior
+        }
+
+        if (target?.Transform != null)
+        {
+            // Reset localScale to positive (reset any scale-based flipping)
+            Vector3 scale = target.Transform.localScale;
+            target.Transform.localScale = new Vector3(Mathf.Abs(scale.x), scale.y, scale.z);
+        }
     }
 }

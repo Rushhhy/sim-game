@@ -104,6 +104,7 @@ public class PlacementSystem : MonoBehaviour
         else
         {
             userInterface.ActivateBuildPanel();
+
         }
 
         // Add preview of building with cells indicating where it can be placed
