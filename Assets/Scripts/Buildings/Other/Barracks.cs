@@ -6,7 +6,11 @@ public class Barracks : Building
     protected override void Awake()
     {
         base.Awake();
-        workPositions = new List<Vector3>() { new Vector3(0.52f, 1.05f, 0f) };
+
+        workPositionsOne = new List<Vector3>() { new Vector3(1.03f, 0.625f, 0) };
+        workPositionsTwo = new List<Vector3>() { new Vector3(0.575f, 0.635f, 0), new Vector3(2.43f, 0.625f, 0) };
+        workPositionsThree = new List<Vector3>() { new Vector3(0.52f, 1.05f, 0f), new Vector3(2.43f, 1.05f, 0f), new Vector3(0.6f, 0.254f, 0f), new Vector3(2.43f, 0.254f, 0f) };
+        workPositions = workPositionsOne;
         width = 3;
     }
     public override void UpgradeBuilding()
@@ -20,13 +24,12 @@ public class Barracks : Building
         if (Level == 2)
         {
             BuildingName = "Barracks LVL2";
-            workPositions.Add(new Vector3(2.43f, 1.05f, 0f));
+            workPositions = workPositionsTwo;
         }
         else if (Level == 3)
         {
             BuildingName = "Barracks LVL3";
-            workPositions.Add(new Vector3(0.21f, 0.56f, 0f));
-            workPositions.Add(new Vector3(2.43f, 0.56f, 0f));
+            workPositions = workPositionsThree;
         }
     }
 }

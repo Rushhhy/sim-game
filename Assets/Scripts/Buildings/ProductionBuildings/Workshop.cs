@@ -7,7 +7,10 @@ public class Workshop : ProductionBuilding
     {
         base.Awake();
 
-        workPositions = new List<Vector3>() { new Vector3(0.655f, 1.1f, 0f) };
+        workPositionsOne = new List<Vector3>() { new Vector3(0.95f, 0.625f, 0) };
+        workPositionsTwo = new List<Vector3>() { new Vector3(0.77f, 0.714f, 0) };
+        workPositionsThree = new List<Vector3>() { new Vector3(0.655f, 1.1f, 0f), new Vector3(0.655f, 0.53f, 0f) };
+        workPositions = workPositionsOne;
 
         inputMethodBase = new int[] { 0, 0 };
         inputMethodOne = new int[] { 1, 1 };
@@ -34,11 +37,12 @@ public class Workshop : ProductionBuilding
         if (Level == 2)
         {
             BuildingName = "Workshop LVL2";
+            workPositions = workPositionsTwo;
         }
         else if (Level == 3)
         {
             BuildingName = "Workshop LVL3";
-            workPositions.Add(new Vector3(0.655f, 0.53f, 0f));
+            workPositions = workPositionsThree;
         }
     }
 }

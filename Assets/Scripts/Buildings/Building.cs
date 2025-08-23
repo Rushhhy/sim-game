@@ -51,6 +51,8 @@ public class Building : MonoBehaviour
     private VillagerManager villagerManager;
 
     public List<Vector3> workPositions;
+
+    public List<Vector3> workPositionsOne, workPositionsTwo, workPositionsThree;
     protected virtual void Awake()
     {
         buildingRegistryManager = GameObject.Find("BuildingRegistryManager").GetComponent<BuildingRegistryManager>();

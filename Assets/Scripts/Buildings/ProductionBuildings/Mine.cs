@@ -30,10 +30,7 @@ public class Mine : ProductionBuilding
     protected override void StartBuildOrUpgrade(int level)
     {
         base.StartBuildOrUpgrade(level);
-        transform.position += new Vector3(0.15f, 0f, 0f);
-        currentProgressBar.gameObject.transform.position += new Vector3(0.15f, 0f, 0f);
-        finishConstructionObj.transform.position += new Vector3(0.15f, 0f, 0f);
-        hammerObj.transform.position += new Vector3(0.15f, 0f, 0f);
+
     }
 
     public override void UpgradeBuilding()
@@ -57,6 +54,5 @@ public class Mine : ProductionBuilding
     public override void FinishConstruction()
     {
         base.FinishConstruction();
-        transform.position -= new Vector3(0.15f, 0f, 0f);
     }
 }

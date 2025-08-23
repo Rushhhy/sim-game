@@ -13,7 +13,10 @@ public class Farm : ProductionBuilding
     {
         base.Awake();
 
-        workPositions = new List<Vector3>() { new Vector3(0.6f, 1f, 0) };
+        workPositionsOne = new List<Vector3>() { new Vector3(1.03f, 0.75f, 0) };
+        workPositionsTwo = new List<Vector3>() { new Vector3(0.571f, 0.75f, 0), new Vector3(2.45f, 0.75f, 0) };
+        workPositionsThree = new List<Vector3>() { new Vector3(0.6f, 1f, 0), new Vector3(2.55f, 1f, 0), new Vector3(0.6f, 0.455f, 0f), new Vector3(2.55f, 0.455f, 0f) };
+        workPositions = workPositionsOne;
 
         inputMethodBase = new int[] { };
         inputMethodOne = new int[] { };
@@ -40,13 +43,12 @@ public class Farm : ProductionBuilding
         if (Level == 2)
         {
             BuildingName = "Farm LVL2";
-            workPositions.Add(new Vector3(2.55f, 1f, 0));
+            workPositions = workPositionsTwo;
         }
         else if (Level == 3)
         {
             BuildingName = "Farm LVL3";
-            workPositions.Add(new Vector3(0.6f, 0.455f, 0f));
-            workPositions.Add(new Vector3(2.55f, 0.455f, 0f));
+            workPositions = workPositionsThree;
         }
 
         animator.SetInteger("Growth", 1);
